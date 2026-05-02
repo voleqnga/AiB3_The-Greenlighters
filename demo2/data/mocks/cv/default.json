@@ -1,0 +1,37 @@
+{
+    "basicInfo": {
+        "name": "Nguyễn Văn A (Mặc định)",
+        "email": "nguyen.a@example.com",
+        "phone": "0901234567"
+    },
+    "education": [
+        {
+            "institution": "Đại học Bách Khoa TP.HCM",
+            "degree": "Cử nhân",
+            "field": "Khoa học Máy tính",
+            "graduationYear": "2022"
+        }
+    ],
+    "experience": [
+        {
+            "title": "Frontend Developer",
+            "company": "Tech Solutions",
+            "duration": "2022-2024",
+            "description": "Phát triển giao diện web ReactJS, tối ưu hóa hiệu năng."
+        }
+    ],
+    "skills": [
+        {
+            "name": "JavaScript",
+            "confidence": 95
+        },
+        {
+            "name": "React",
+            "confidence": 90
+        },
+        {
+            "name": "HTML/CSS",
+            "confidence": 85
+        }
+    ]
+}
