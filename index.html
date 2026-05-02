@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dev/local: cho phép PDF.js (CDN) + iframe blob PDF + API; production nên thắt CSP ở server -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://api.anthropic.com blob:; worker-src 'self' blob: https://cdnjs.cloudflare.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https://api.anthropic.com https://cdnjs.cloudflare.com https://script.google.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self' blob: data:;">
+    <meta name="description" content="Hệ thống tuyển dụng AI minh bạch, công bằng và tôn trọng ứng viên">
+    <link rel="stylesheet" href="styles.css?v=20260403p">
+</head>
+
+<body>
+    <!-- ============================================
+         SCREEN 0: LANDING — CHỌN VAI TRÒ
+         ============================================ -->
+    <div class="screen active" id="screen0">
+        <div class="container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; text-align:center;">
+            <h1 style="margin-bottom:.5rem;">HỆ THỐNG TUYỂN DỤNG AI</h1>
+            <p class="subtitle" style="margin-bottom:2.5rem;">Chọn vai trò của bạn để tiếp tục</p>
+
+            <div class="role-grid">
+                <button class="role-card" id="btnRoleHR" type="button">
+                    <span class="role-icon">💼</span>
+                    <span class="role-title">Nhà tuyển dụng (HR)</span>
+                    <span class="role-desc">Tải lên mô tả công việc (JD) để hệ thống phân tích</span>
+                </button>
+
+                <button class="role-card" id="btnRoleCandidate" type="button">
+                    <span class="role-icon">📄</span>
+                    <span class="role-title">Ứng viên</span>
+                    <span class="role-desc">Tải lên CV và nhận kết quả đánh giá từ AI</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN HR: UPLOAD JD
+         ============================================ -->
+    <div class="screen" id="screenHR">
+        <div class="screen-header screen-header--hr">
+            <div class="header-actions" style="justify-content:space-between; width:100%; align-items:center;">
+                <button class="btn btn-secondary" id="btnHRBack" type="button">
+                    <span>←</span> Quay lại
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+            </div>
+            <!-- Điều hướng chính: thiết kế thẻ (khác tab PDF/văn bên dưới) -->
+            <nav class="hr-main-nav" id="hrMainTabstrip" aria-label="Mục HR">
+                <button type="button" class="hr-main-nav__btn hr-main-nav__btn--active" id="hrMainTabJd" role="tab" aria-selected="true">
+                    <span class="hr-main-nav__icon" aria-hidden="true">📋</span>
+                    <span class="hr-main-nav__text">
+                        <span class="hr-main-nav__label">Tải JD</span>
+                        <span class="hr-main-nav__hint">Nhập mô tả công việc</span>
+                    </span>
+                </button>
+                <button type="button" class="hr-main-nav__btn" id="hrMainTabPool" role="tab" aria-selected="false">
+                    <span class="hr-main-nav__icon" aria-hidden="true">👥</span>
+                    <span class="hr-main-nav__text">
+                        <span class="hr-main-nav__label">Ứng viên đã nộp</span>
+                        <span class="hr-main-nav__hint">Điểm AI &amp; quyết định</span>
+                    </span>
+                </button>
+            </nav>
+        </div>
+
+        <div id="hrPanelJd">
+        <div class="hr-jd-heading-block" id="hrJdHeadingBlock">
+            <h1>NHẬP MÔ TẢ CÔNG VIỆC (JD)</h1>
+            <p class="subtitle">Upload file PDF hoặc nhập trực tiếp nội dung Job Description</p>
+        </div>
+        <p class="hr-jd-subtabs-label">Chọn cách nhập nội dung JD</p>
+        <!-- Tab phụ: PDF / văn bản (kiểu thanh segment — khác mục chính) -->
+        <div class="jd-tabs hr-jd-subtabs" id="hrJdSubtabs">
+            <button class="jd-tab active" id="jdTabFile" type="button" style="flex:1;">📄 Tải file PDF</button>
+            <button class="jd-tab" id="jdTabText" type="button" style="flex:1;">✏️ Nhập văn bản</button>
+        </div>
+
+        <!-- Phương thức 1: Upload file -->
+        <div class="upload-section glass-card" id="jdFileSection">
+            <h3><span>📤</span> Tải lên file JD</h3>
+            <div class="upload-dropzone" id="jdUploadDropzone">
+                <div class="upload-icon">📋</div>
+                <p class="upload-text">Kéo thả file PDF vào đây</p>
+                <p class="upload-subtext">hoặc</p>
+                <label class="btn btn-secondary upload-btn">
+                    Chọn file PDF
+                    <input type="file" id="jdFileInput" accept=".pdf,application/pdf" hidden>
+                </label>
+                <p class="upload-hint">Chỉ chấp nhận file PDF, tối đa 10MB</p>
+            </div>
+            <div class="upload-processing" id="jdProcessing" style="display:none;">
+                <div class="processing-spinner"></div>
+                <p class="processing-text">Đang trích xuất JD...</p>
+                <p class="processing-subtext">Vui lòng chờ trong giây lát</p>
+            </div>
+            <div class="upload-preview" id="jdPreview" style="display:none;">
+                <div class="file-info">
+                    <span class="file-icon">📋</span>
+                    <span class="file-name" id="jdFileName"></span>
+                    <span class="file-size" id="jdFileSize"></span>
+                    <button class="btn-icon remove-file" id="jdRemoveFile" title="Xóa file">✕</button>
+                </div>
+                <div class="upload-status" id="jdUploadStatus">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">JD đã được trích xuất và lưu thành công</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phương thức 2: Nhập text -->
+        <div class="upload-section glass-card" id="jdTextSection" style="display:none;">
+            <h3><span>✏️</span> Nhập nội dung JD</h3>
+            <textarea id="jdTextarea" rows="12" placeholder="Dán hoặc nhập nội dung mô tả công việc tại đây..." style="width:100%; padding:1rem; border:1px solid var(--warm-grey-dark,#ddd); border-radius:var(--radius-md,12px); font-family:inherit; font-size:.95rem; line-height:1.6; resize:vertical;"></textarea>
+            <div style="margin-top:1rem; text-align:right;">
+                <button class="btn btn-primary" id="jdTextSubmit" type="button">Xác nhận JD</button>
+            </div>
+            <div class="upload-processing" id="jdTextProcessing" style="display:none;">
+                <div class="processing-spinner"></div>
+                <p class="processing-text">Đang trích xuất JD...</p>
+            </div>
+            <div id="jdTextDone" style="display:none; margin-top:1rem; padding:.75rem 1rem; background:var(--sage-green-light,#e8f5e9); border-radius:var(--radius-md,12px); color:var(--sage-green,#388e3c);">
+                <span>✓</span> JD đã được lưu thành công
+            </div>
+        </div>
+
+        <div class="jd-error glass-card" id="jdErrorCard" style="display:none; margin-top:1.5rem; background:rgba(220,53,69,.08); border:1px solid rgba(220,53,69,.3); border-radius:var(--radius-lg,16px); padding:1.25rem 1.5rem;">
+            <p id="jdErrorMessage" style="margin:0; color:#c0392b; font-size:.95rem; line-height:1.5;"></p>
+        </div>
+
+        <div id="jdResultCard" style="display:none;"></div>
+        </div><!-- /hrPanelJd -->
+
+        <div id="hrPanelPool" class="hr-pool-wrap" style="display:none;">
+            <div class="hr-pool-heading-block" id="hrPoolHeadingBlock">
+                <h1>ỨNG VIÊN ĐÃ NỘP</h1>
+                <p class="subtitle">Danh sách xếp theo điểm AI — nhận xét và gửi kết quả Đậu / Rớt</p>
+            </div>
+            <div class="hr-pool-toolbar glass-card" style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:.75rem; margin-bottom:1rem; padding:.85rem 1.25rem;">
+                <button type="button" class="btn btn-secondary" id="hrPoolRefresh">Làm mới danh sách</button>
+            </div>
+            <div class="hr-pool-split glass-card" style="display:grid; grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr); gap:0; overflow:hidden;">
+                <div class="hr-pool-list-col" style="border-right:1px solid rgba(0,0,0,.08); max-height:min(70vh,560px); overflow-y:auto;">
+                    <div id="hrPoolList" class="hr-pool-list-inner"></div>
+                </div>
+                <div class="hr-pool-detail-col" style="padding:1.25rem; max-height:min(70vh,560px); overflow-y:auto; background:rgba(255,255,255,.5);">
+                    <div id="hrPoolDetailEmpty" style="color:var(--text-secondary,#666); font-size:.95rem;">
+                        Chọn một ứng viên bên trái để xem điểm AI, nhập nhận xét và gửi quyết định Đậu / Rớt.
+                    </div>
+                    <div id="hrPoolDetailBody" style="display:none;">
+                        <h3 id="hrDetailName" style="margin:0 0 .25rem; font-size:1.15rem;"></h3>
+                        <p id="hrDetailEmail" style="margin:0 0 .75rem; font-size:.9rem; color:#555;"></p>
+                        <div id="hrDetailScoreRow" style="margin-bottom:1rem;"></div>
+                        <div class="hr-ai-suggest" id="hrAiSuggestBlock">
+                            <p style="font-weight:600; font-size:.9rem; margin:0 0 .5rem;">Gợi ý từ AI</p>
+                            <p id="hrAiPendingMsg" class="hr-ai-pending" style="display:none; font-size:.85rem; color:#888; margin:0 0 .75rem;">Đang chờ hệ thống phân tích xong — nội dung sẽ đồng bộ sau bước &quot;Phân tích AI &amp; xem kết quả&quot; (ứng viên).</p>
+                            <p class="hr-ai-subheading">Điểm nổi bật</p>
+                            <ul id="hrDetailStrengths" class="hr-ai-bullet-list"></ul>
+                            <p class="hr-ai-subheading">Hướng phát triển</p>
+                            <ul id="hrDetailDevelopment" class="hr-ai-bullet-list"></ul>
+                            <div id="hrDetailExplanationWrap" style="display:none; margin-top:.85rem;">
+                                <p class="hr-ai-subheading">Giải thích kết quả phân tích</p>
+                                <p id="hrDetailExplanationSummary" style="font-size:.85rem; line-height:1.55; color:#444; margin:0 0 .5rem;"></p>
+                                <p id="hrDetailExplanationImprovement" style="display:none; font-size:.85rem; line-height:1.55; color:#555; margin:0;"></p>
+                            </div>
+                            <p id="hrDetailReco" style="display:none; margin:.75rem 0 0; font-size:.85rem; line-height:1.5; color:#555;"></p>
+                        </div>
+                        <label for="hrFeedbackInput" style="font-weight:600; font-size:.9rem;">Nhập feedback cho ứng viên</label>
+                        <textarea id="hrFeedbackInput" rows="4" placeholder="Nhận xét ngắn gọn, hướng cải thiện hoặc lời chúc mừng..." style="width:100%; margin-top:.4rem; padding:.65rem .85rem; border-radius:10px; border:1px solid #ccc; font-family:inherit; font-size:.9rem; resize:vertical;"></textarea>
+                        <div style="display:flex; gap:.75rem; margin-top:1rem; flex-wrap:wrap;">
+                            <button type="button" class="btn hr-btn-pass" id="hrBtnPass">Đậu</button>
+                            <button type="button" class="btn hr-btn-fail" id="hrBtnFail">Rớt</button>
+                        </div>
+                        <p id="hrDetailDecisionNote" style="margin-top:1rem; font-size:.85rem; color:#666; display:none;"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="hrDecisionModal" style="display:none;" aria-modal="true" role="dialog">
+            <div class="modal-content" style="max-width:420px;">
+                <h2 id="hrModalTitle" style="margin-top:0;">Xác nhận quyết định</h2>
+                <p id="hrModalText" style="color:var(--text-secondary); line-height:1.5;"></p>
+                <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem;">
+                    <button type="button" class="btn btn-secondary" id="hrModalCancel">Hủy</button>
+                    <button type="button" class="btn btn-primary" id="hrModalConfirm">Xác nhận &amp; gửi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar" style="display:none;">
+        <div class="progress-dot active" data-screen="1"></div>
+        <div class="progress-dot" data-screen="2"></div>
+        <div class="progress-dot" data-screen="3"></div>
+        <div class="progress-dot" data-screen="4"></div>
+        <div class="progress-dot" data-screen="5"></div>
+    </div>
+
+    <!-- Ứng viên: tab Quy trình / Thông báo (cùng kiểu thẻ bo tròn như HR) -->
+    <nav id="candidateMainTabs" class="candidate-main-nav" style="display:none;" aria-label="Điều hướng ứng viên">
+        <button type="button" class="candidate-tab active" id="candidateTabFlow">
+            <span class="candidate-tab__icon" aria-hidden="true">📋</span>
+            <span class="candidate-tab__text">
+                <span class="candidate-tab__label">Quy trình ứng tuyển</span>
+                <span class="candidate-tab__hint">Các bước minh bạch &amp; phân tích AI</span>
+            </span>
+        </button>
+        <button type="button" class="candidate-tab" id="candidateTabNotice">
+            <span class="candidate-tab__icon" aria-hidden="true">📬</span>
+            <span class="candidate-tab__text">
+                <span class="candidate-tab__label">Thông báo kết quả</span>
+                <span class="candidate-tab__hint">Phản hồi từ HR</span>
+            </span>
+        </button>
+    </nav>
+
+    <!-- ============================================
+         SCREEN: THÔNG BÁO KẾT QUẢ (ứng viên)
+         ============================================ -->
+    <div class="screen" id="screenCandidateNotice">
+        <div class="container" style="max-width:640px;">
+            <div class="screen-header">
+                <h1>THÔNG BÁO KẾT QUẢ</h1>
+                <p class="subtitle">Phản hồi từ nhà tuyển dụng sau khi xem xét hồ sơ</p>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-bottom:.75rem;">
+                <button type="button" class="btn btn-secondary" id="candidateNoticeRefresh">Làm mới</button>
+            </div>
+            <div id="candidateNoticeBody" class="glass-card" style="padding:1.35rem 1.5rem; min-height:120px;">
+                <p style="margin:0;color:#666;">Chọn tab để tải nội dung.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN 1: AI TRANSPARENCY IN RECRUITMENT
+         ============================================ -->
+    <div class="screen" id="screen1">
+        <!-- Header -->
+        <div class="screen-header">
+            <div class="header-actions" style="justify-content:space-between; width:100%; align-items:center;">
+                <button class="btn btn-secondary" id="btnScreen1Back" type="button">
+                    <span>←</span> Quay lại
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+            </div>
+            <h1>AI ĐƯỢC SỬ DỤNG NHƯ THẾ NÀO TRONG QUY TRÌNH TUYỂN DỤNG?</h1>
+            <p class="subtitle">Minh bạch là nền tảng của sự tin cậy</p>
+        </div>
+
+        <!-- Workflow Steps - Fixed UI Content -->
+        <div class="workflow-container glass-card">
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <span class="step-icon">📄</span>
+                    <span>TẢI CV</span>
+                </div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step highlighted">
+                    <span class="step-icon">🤖</span>
+                    <span>AI SÀNG LỌC</span>
+                </div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">
+                    <span class="step-icon">👤</span>
+                    <span>HR ĐÁNH GIÁ</span>
+                </div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-step">
+                    <span class="step-icon">✅</span>
+                    <span>TRẢ KẾT QUẢ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Cards - Fixed UI Content -->
+        <div class="comparison-grid">
+            <div class="glass-card comparison-card can-do">
+                <h3>
+                    <span>✓</span>
+                    AI CÓ THỂ
+                </h3>
+                <ul class="comparison-list">
+                    <li>
+                        <span class="list-icon">✓</span>
+                        <span>Trích xuất kỹ năng từ CV của bạn</span>
+                    </li>
+                    <li>
+                        <span class="list-icon">✓</span>
+                        <span>Đối chiếu với yêu cầu công việc</span>
+                    </li>
+                    <li>
+                        <span class="list-icon">✓</span>
+                        <span>Phân tích dữ liệu CV một cách khách quan</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="glass-card comparison-card cannot-do">
+                <h3>
+                    <span>✗</span>
+                    AI KHÔNG
+                </h3>
+                <ul class="comparison-list">
+                    <li>
+                        <span class="list-icon">✗</span>
+                        <span>Không đánh giá dựa trên giới tính hoặc tuổi tác</span>
+                    </li>
+                    <li>
+                        <span class="list-icon">✗</span>
+                        <span>Không truy cập dữ liệu cá nhân ngoài CV</span>
+                    </li>
+                    <li>
+                        <span class="list-icon">✗</span>
+                        <span>Không đưa ra quyết định tuyển dụng cuối cùng</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- PDF Upload Section -->
+        <div class="upload-section glass-card">
+            <h3>
+                <span>📤</span>
+                Tải lên CV của bạn
+            </h3>
+            <div class="upload-dropzone" id="uploadDropzone">
+                <div class="upload-icon">📄</div>
+                <p class="upload-text">Kéo thả file PDF vào đây</p>
+                <p class="upload-subtext">hoặc</p>
+                <label class="btn btn-secondary upload-btn">
+                    Chọn file PDF
+                    <input type="file" id="cvFileInput" accept=".pdf,application/pdf" hidden>
+                </label>
+                <p class="upload-hint">Chỉ chấp nhận file PDF, tối đa 10MB</p>
+            </div>
+            <!-- Upload Processing Overlay -->
+            <div class="upload-processing" id="uploadProcessing" style="display: none;">
+                <div class="processing-spinner"></div>
+                <p class="processing-text">Đang tải lên CV...</p>
+                <p class="processing-subtext">Vui lòng chờ trong giây lát</p>
+            </div>
+            <div class="upload-preview" id="uploadPreview" style="display: none;">
+                <div class="file-info">
+                    <span class="file-icon">📄</span>
+                    <span class="file-name" id="fileName"></span>
+                    <span class="file-size" id="fileSize"></span>
+                    <button class="btn-icon remove-file" id="removeFile" title="Xóa file">✕</button>
+                </div>
+                <div class="upload-status" id="uploadStatus">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">Đã tải lên thành công</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consent Checkbox -->
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="consentCheckbox">
+            <label for="consentCheckbox">
+                Tôi đã hiểu cách AI được sử dụng trong quy trình này và đồng ý tiếp tục
+            </label>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="footer-actions center">
+            <button class="btn btn-primary" id="continueBtn1" disabled>
+                Tiếp tục
+                <span>→</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN 2: CV PREVIEW & EDIT
+         ============================================ -->
+    <div class="screen" id="screen2">
+        <div class="screen-header">
+            <div class="header-actions" style="justify-content:space-between; width:100%; align-items:center;">
+                <button class="btn btn-secondary" onclick="goToScreen(1)">
+                    <span>←</span>
+                    Quay lại
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+            </div>
+            <h1>XÁC NHẬN THÔNG TIN CV</h1>
+            <p class="subtitle">Kiểm tra và chỉnh sửa thông tin trước khi gửi đến HR</p>
+        </div>
+
+        <div class="split-screen">
+            <!-- Left: Original CV -->
+            <div class="cv-preview-panel">
+                <h3>
+                    <span>📄</span>
+                    CV gốc đã tải lên
+                    <span class="cv-filename" id="cvFilenameDisplay"></span>
+                </h3>
+                <div class="cv-document" id="cvDocumentViewer">
+                    <!-- PDF will be displayed here -->
+                    <div class="pdf-placeholder" id="pdfPlaceholder">
+                        <div class="placeholder-icon">📄</div>
+                        <p>Chưa có file CV được tải lên</p>
+                    </div>
+                    <iframe id="pdfViewer" class="pdf-iframe" style="display: none;"></iframe>
+                    <canvas id="pdfCanvas" class="pdf-canvas" style="display: none;"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: AI Summary -->
+            <div class="glass-card ai-summary-panel">
+                <h3>
+                    Tóm tắt thông minh từ
+                    <span class="ai-badge">AI</span>
+                </h3>
+
+                <div class="form-group">
+                    <span class="form-section-heading" id="headingBasicInfo">Thông tin cơ bản</span>
+                    <div class="editable-field mb-sm">
+                        <label class="sr-only" for="fieldCvName">Họ tên</label>
+                        <input id="fieldCvName" name="cvName" type="text" class="input-field" data-field="name" value="" autocomplete="name" aria-labelledby="headingBasicInfo">
+                        <button type="button" class="edit-btn" title="Chỉnh sửa" aria-label="Chỉnh sửa họ tên"></button>
+                    </div>
+                    <div class="editable-field mb-sm">
+                        <label class="sr-only" for="fieldCvEmail">Email</label>
+                        <input id="fieldCvEmail" name="cvEmail" type="email" class="input-field" data-field="email" value="" autocomplete="email" aria-labelledby="headingBasicInfo">
+                        <button type="button" class="edit-btn" title="Chỉnh sửa" aria-label="Chỉnh sửa email"></button>
+                    </div>
+                    <div class="editable-field">
+                        <label class="sr-only" for="fieldCvPhone">Điện thoại</label>
+                        <input id="fieldCvPhone" name="cvPhone" type="tel" class="input-field" data-field="phone" value="" autocomplete="tel" aria-labelledby="headingBasicInfo">
+                        <button type="button" class="edit-btn" title="Chỉnh sửa" aria-label="Chỉnh sửa số điện thoại"></button>
+                    </div>
+                </div>
+
+                <div class="form-group form-group--skills">
+                    <span class="skills-main-label" id="headingSkills">Kỹ năng (theo nhóm)</span>
+                    <div class="skills-by-category" role="group" aria-labelledby="headingSkills">
+                        <div class="skill-category-block">
+                            <span class="skill-cat-label">Ngôn ngữ</span>
+                            <div class="skill-chips" id="skillChipsLanguages"><span class="skill-chips-empty">Chưa có dữ liệu</span></div>
+                            <textarea id="fieldSkillLanguages" name="skillLanguages" class="skill-cat-input-hidden" data-skill-cat="languages"></textarea>
+                        </div>
+                        <div class="skill-category-block">
+                            <span class="skill-cat-label">Công cụ &amp; phần mềm</span>
+                            <div class="skill-chips" id="skillChipsTools"><span class="skill-chips-empty">Chưa có dữ liệu</span></div>
+                            <textarea id="fieldSkillTools" name="skillTools" class="skill-cat-input-hidden" data-skill-cat="tools"></textarea>
+                        </div>
+                        <div class="skill-category-block">
+                            <span class="skill-cat-label">Kỹ năng chuyên môn (Hard)</span>
+                            <div class="skill-chips" id="skillChipsHard"><span class="skill-chips-empty">Chưa có dữ liệu</span></div>
+                            <textarea id="fieldSkillHard" name="skillHard" class="skill-cat-input-hidden" data-skill-cat="hardSkills"></textarea>
+                        </div>
+                        <div class="skill-category-block">
+                            <span class="skill-cat-label">Kỹ năng mềm (Soft)</span>
+                            <div class="skill-chips" id="skillChipsSoft"><span class="skill-chips-empty">Chưa có dữ liệu</span></div>
+                            <textarea id="fieldSkillSoft" name="skillSoft" class="skill-cat-input-hidden" data-skill-cat="softSkills"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fieldCvExperience">Kinh nghiệm liên quan</label>
+                    <div class="editable-field editable-field--stack">
+                        <textarea id="fieldCvExperience" name="cvExperience" class="input-field" data-field="experience" rows="8" placeholder="Kinh nghiệm theo từng công ty..."></textarea>
+                        <button type="button" class="edit-btn" title="Chỉnh sửa" aria-label="Chỉnh sửa kinh nghiệm"></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fieldCvEducation">Học vấn</label>
+                    <div class="editable-field editable-field--stack">
+                        <textarea id="fieldCvEducation" name="cvEducation" class="input-field" data-field="education" rows="3" placeholder="Trường và năm tốt nghiệp..."></textarea>
+                        <button type="button" class="edit-btn" title="Chỉnh sửa" aria-label="Chỉnh sửa học vấn"></button>
+                    </div>
+                </div>
+
+                <!-- Confirmation Checkbox -->
+                <div class="checkbox-wrapper"
+                    style="margin-top: 24px; padding: 16px; background: var(--sage-green-light); border-radius: 8px;">
+                    <input type="checkbox" id="confirmDataCheckbox">
+                    <label for="confirmDataCheckbox" style="font-weight: 500; font-size: 0.95rem;">
+                        Tôi xác nhận thông tin đã trích xuất là chính xác và đồng ý gửi hồ sơ này
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Actions: sticky để luôn bấm được (không bị khuất sau khi cuộn) -->
+        <div class="footer-actions footer-actions--screen2" id="screen2Footer">
+            <button type="button" class="btn btn-primary" id="btnSubmitCV">
+                GỬI CV — BƯỚC TIẾP
+                <span>→</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN 3: PROCESSING / WAITING
+         ============================================ -->
+    <div class="screen" id="screen3">
+        <div class="screen-header" style="margin-bottom: 0;">
+            <div class="header-actions" style="justify-content:space-between; width:100%; max-width:900px; margin:0 auto; align-items:center;">
+                <button class="btn btn-secondary" onclick="goToScreen(2)">
+                    <span>←</span>
+                    Quay lại
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+            </div>
+        </div>
+        <div class="container">
+            <div class="processing-container">
+                <div class="processing-icon">✓</div>
+
+                <h1>CV ĐÃ ĐƯỢC GỬI THÀNH CÔNG</h1>
+
+                <div class="processing-steps">
+                    <!-- Populated by Screen3Component -->
+                </div>
+
+                <div class="processing-message">
+                    <p>
+                        CV của bạn đã được gửi đến <strong>bộ phận nhân sự</strong>.<br>
+                        HR sẽ xem xét và phản hồi trong vòng <strong>2–3 ngày làm việc</strong>.
+                    </p>
+                </div>
+
+                <div class="demo-notice">
+                    <button type="button" class="btn btn-primary" onclick="simulateHRResponse()">
+                        Phân tích AI &amp; xem kết quả
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN 4: RESULTS DASHBOARD
+         ============================================ -->
+    <div class="screen" id="screen4">
+        <div class="container">
+            <div class="screen-header">
+                <div class="header-actions" style="justify-content:space-between; width:100%; align-items:center;">
+                    <button class="btn btn-secondary" onclick="goToScreen(3)">
+                        <span>←</span>
+                        Quay lại
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+                </div>
+                <h1>KẾT QUẢ ĐÁNH GIÁ HỒ SƠ</h1>
+            </div>
+
+            <!-- Result Banner -->
+            <div class="result-banner success" id="resultBanner">
+                <!-- Populated by Screen4Component -->
+            </div>
+
+            <!-- Circular Gauge -->
+            <div class="gauge-container">
+                <div class="circular-gauge">
+                    <div class="gauge-circle" style="--percentage: 0">
+                        <div class="gauge-inner">
+                            <span class="gauge-value">0%</span>
+                            <span class="gauge-label">MỨC ĐỘ PHÙ HỢP VỚI JD</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Cards - AI Generated Content -->
+            <div class="feedback-grid">
+                <div class="glass-card feedback-card strengths">
+                    <h4>
+                        ĐIỂM NỔI BẬT
+                    </h4>
+                    <ul class="feedback-list" id="strengthsList">
+                        <!-- AI Analysis Data - Filled by backend -->
+                    </ul>
+                </div>
+
+                <div class="glass-card feedback-card development">
+                    <h4>
+                        HƯỚNG PHÁT TRIỂN
+                    </h4>
+                    <ul class="feedback-list" id="developmentList">
+                        <!-- AI Analysis Data - Filled by backend -->
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Explainability Section - AI Generated Content -->
+            <div class="explainability-section">
+                <h4>
+                    GIẢI THÍCH KẾT QUẢ PHÂN TÍCH
+                </h4>
+                <div class="explanation-content" id="explanationContent">
+                    <!-- AI Analysis Data - Filled by backend -->
+                </div>
+                <div class="hr-confirmation" id="hrConfirmation">
+                    <!-- HR confirmation message - Filled by backend -->
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="footer-actions center" style="display: flex; justify-content: center;">
+                <button class="btn btn-primary" onclick="goToScreen(5)">
+                    Đánh giá trải nghiệm
+                    <span>→</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCREEN 5: EXPERIENCE SURVEY
+         ============================================ -->
+    <div class="screen" id="screen5">
+        <div class="container">
+            <div class="screen-header">
+                <div class="header-actions" style="justify-content:space-between; width:100%; align-items:center;">
+                    <button class="btn btn-secondary" onclick="goToScreen(4)">
+                        <span>←</span>
+                        Quay lại
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="goToScreen('0')">Trang chủ</button>
+                </div>
+                <h1>GIÚP CHÚNG TÔI CẢI THIỆN</h1>
+                <p class="subtitle">Phản hồi của bạn giúp chúng tôi xây dựng trải nghiệm tốt hơn cho ứng viên</p>
+            </div>
+
+            <div class="survey-container">
+                <!-- Survey items populated by Screen5Component -->
+
+                <!-- Survey items populated by Screen5Component -->
+
+                <!-- Footer Actions -->
+                <div class="footer-actions center" style="display: flex; justify-content: center;">
+                    <button class="btn btn-primary" onclick="completeSurvey()">
+                        HOÀN TẤT
+                        <span>✓</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal-overlay" id="successModal">
+        <div class="modal-content">
+            <div class="modal-icon">🎉</div>
+            <h2>CẢM ƠN BẠN!</h2>
+            <p style="color: var(--text-secondary); margin: 16px 0;">
+                Phản hồi của bạn đã được ghi nhận và sẽ giúp chúng tôi cải thiện quy trình tuyển dụng.
+            </p>
+            <button class="btn btn-primary" onclick="endSession()">
+                HOÀN TẤT
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SCRIPTS - Load in correct order
+         ============================================ -->
+    <!-- Config (must be first) -->
+    <script src="config/config.js?v=20260403p"></script>
+
+    <!-- Data Layer -->
+    <script src="data/mockData.js?v=20260403p"></script>
+    <script src="data/database.js?v=20260403p"></script>
+
+    <!-- Utilities (before PDFService — uses Helpers) -->
+    <script src="utils/helpers.js?v=20260403p"></script>
+
+    <!-- Services Layer -->
+    <script src="services/apiService.js?v=20260403p"></script>
+    <script src="services/hrPoolService.js?v=20260403p"></script>
+    <script src="services/cvAnalysisService.js?v=20260403p"></script>
+    <script src="services/pdfService.js?v=20260403p"></script>
+
+    <!-- Components -->
+    <script src="components/Screen0_Landing.js?v=20260403p"></script>
+    <script src="components/ScreenHR_JDUpload.js?v=20260403p"></script>
+    <script src="components/Screen1_Transparency.js?v=20260403p"></script>
+    <script src="components/Screen2_CVPreview.js?v=20260403p"></script>
+    <script src="components/Screen4_Results.js?v=20260403p"></script>
+    <script src="components/Screen3_Processing.js?v=20260403p"></script>
+    <script src="components/Screen5_Survey.js?v=20260403p"></script>
+
+    <!-- Main App (must be last) -->
+    <script src="app.js?v=20260403p"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const s0 = document.getElementById('screen0');
+        if (s0 && !s0.classList.contains('active')) s0.classList.add('active');
+    });
+    </script>
+<script src="static/chatbot/faqData.js"></script>
+<script src="static/chatbot/intentDetector.js"></script>
+<script src="static/chatbot/ChatController.js"></script>
+<script src="static/chatbot/ChatbotWidget.js"></script>
+</body>
+
+</html>
