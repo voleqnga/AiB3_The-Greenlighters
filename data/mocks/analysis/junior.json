@@ -1,0 +1,25 @@
+{
+    "matchScore": 65,
+    "status": "partially_matched",
+    "reviewedByHR": true,
+    "strengths": [
+        {
+            "title": "Có kiến thức nền tảng HTML/CSS"
+        },
+        {
+            "title": "Thái độ học hỏi tốt (Internship)"
+        }
+    ],
+    "developmentAreas": [
+        {
+            "title": "Chưa có kinh nghiệm ReactJS thực tế"
+        },
+        {
+            "title": "Cần đào tạo thêm về quy trình Agile"
+        },
+        {
+            "title": "Chưa tốt nghiệp Đại học (Associate)"
+        }
+    ],
+    "explanation": "Ứng viên ở mức Junior/Intern, chưa đáp ứng đủ yêu cầu cho vị trí chính thức. Có thể xem xét cho vị trí Thực tập sinh hoặc Fresher để đào tạo thêm."
+}

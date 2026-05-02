@@ -1,0 +1,33 @@
+{
+    "basicInfo": {
+        "name": "Trần Thị Senior",
+        "email": "tran.senior@example.com",
+        "phone": "0988888888"
+    },
+    "education": [
+        {
+            "institution": "RMIT",
+            "degree": "Master",
+            "field": "Software Engineering",
+            "graduationYear": "2020"
+        }
+    ],
+    "experience": [
+        {
+            "title": "Senior Developer",
+            "company": "Global Corp",
+            "duration": "2018-2024",
+            "description": "Lead team 10 người."
+        }
+    ],
+    "skills": [
+        {
+            "name": "Architecture",
+            "confidence": 98
+        },
+        {
+            "name": "Leadership",
+            "confidence": 90
+        }
+    ]
+}

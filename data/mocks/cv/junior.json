@@ -1,0 +1,33 @@
+{
+    "basicInfo": {
+        "name": "Lê Văn Junior",
+        "email": "junior@example.com",
+        "phone": "0911111111"
+    },
+    "education": [
+        {
+            "institution": "Cao Đẳng FPT",
+            "degree": "Associate",
+            "field": "Web Design",
+            "graduationYear": "2023"
+        }
+    ],
+    "experience": [
+        {
+            "title": "Intern",
+            "company": "StartUp Inc",
+            "duration": "2023-2023",
+            "description": "Hỗ trợ cắt HTML/CSS."
+        }
+    ],
+    "skills": [
+        {
+            "name": "HTML",
+            "confidence": 80
+        },
+        {
+            "name": "CSS",
+            "confidence": 75
+        }
+    ]
+}

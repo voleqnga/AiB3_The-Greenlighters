@@ -1,0 +1,25 @@
+{
+    "matchScore": 85,
+    "status": "matched",
+    "reviewedByHR": true,
+    "strengths": [
+        {
+            "title": "Kinh nghiệm phù hợp với vị trí Frontend Dev"
+        },
+        {
+            "title": "Kỹ năng JavaScript/React vững"
+        },
+        {
+            "title": "Tốt nghiệp đúng chuyên ngành"
+        }
+    ],
+    "developmentAreas": [
+        {
+            "title": "Cần bổ sung kỹ năng Cloud (AWS/Azure)"
+        },
+        {
+            "title": "Tiếng Anh giao tiếp cần cải thiện"
+        }
+    ],
+    "explanation": "Ứng viên đáp ứng 85% yêu cầu công việc. Điểm mạnh nằm ở kinh nghiệm thực tế và kỹ năng chuyên môn cốt lõi. Tuy nhiên, cần cải thiện thêm về tiếng Anh và kiến thức Cloud để phù hợp hoàn toàn với định hướng dài hạn của công ty."
+}
